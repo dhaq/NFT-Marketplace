@@ -4,7 +4,7 @@ import Link from 'next/link'
 
 function MyApp({ Component, pageProps }) {
     
-    return <div>
+    return <div className="container mx-auto max-w-6xl p-8 2xl:px-0">
     <nav className="border-b p-6">
       <p className="text-4xl font-bold">Viettel NFT Marketplace</p>
       <div className="flex mt-4">
@@ -13,7 +13,7 @@ function MyApp({ Component, pageProps }) {
             Home
           </a>
         </Link>
-        <Link href="/create-item">
+        <Link href="/MintNft">
           <a className="mr-6 text-pink-500">
             Sell Digital Asset
           </a>
@@ -30,6 +30,7 @@ function MyApp({ Component, pageProps }) {
         </Link> */}
       </div>
     </nav>
+    
     <Component {...pageProps} />
   </div>
 }
