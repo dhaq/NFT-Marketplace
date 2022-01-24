@@ -2,15 +2,21 @@
    
 import WalletConnectProvider from '@walletconnect/web3-provider'
 import { providers, ethers } from 'ethers'
-import { useCallback, useEffect, useReducer } from 'react'
+import { useState , useCallback, useEffect, useReducer } from 'react'
 import WalletLink from 'walletlink'
 import Web3Modal from 'web3modal'
+import axios from 'axios'
 import { ellipseAddress, getChainData } from '../lib/utilities'
 import NftCard from './NftCard'
 import useSwr from 'swr'
 
+import NFT from '../contracts/NFT.json'
+import Market from '../contracts/NFTMarket.json'
+
 //const INFURA_ID = '460f40a260564ac4a4f4b3fffb032dad'
 const INFURA_ID = 'eabb028e669541b2905db4adfa2378bb'
+const nftaddress = '0x534e701eb18289eFc670e9b5b18C1BBa9F8ccB56'
+const nftmarketaddress = '0x8520c2C7a64732906a173c1C44CC3DC857d9Ff05'
 
 const providerOptions = {
   walletconnect: {
@@ -211,7 +217,57 @@ export const Home = (): JSX.Element => {
   }, [provider, disconnect])
 
   const chainData = getChainData(chainId)
-  const { data, error } = useSwr('/api/hello', fetcher)
+  //const { data, error } = useSwr('/api/hello', fetcher)
+
+  const [nfts, setNfts] = useState([])
+  const [loadingState, setLoadingState] = useState('not-loaded')
+  useEffect(() => {
+    loadNFTs()
+  }, [])
+  async function loadNFTs() {    
+    //const provider = new ethers.providers.JsonRpcProvider(rpcEndpoint)
+    const provider = await web3Modal.connect()
+    const web3Provider = new providers.Web3Provider(provider)
+    const tokenContract = new ethers.Contract(nftaddress, NFT.abi, web3Provider)
+    const marketContract = new ethers.Contract(nftmarketaddress, Market.abi, web3Provider)
+    const data = await marketContract.fetchMarketItems()
+    console.log('111')
+    console.log(data)
+    const items = await Promise.all(data.map(async i => {
+      
+      const tokenUri = await tokenContract.tokenURI(i.tokenId)
+      const meta = await axios.get(tokenUri)
+      let price = ethers.utils.formatUnits(i.price.toString(), 'ether')
+      let item = {
+        price,
+        itemId: i.itemId.toNumber(),
+        seller: i.seller,
+        owner: i.owner,
+        image: meta.data.image,
+        name: meta.data.name,
+        description: meta.data.description,
+      }
+      return item
+    }))
+    setNfts(items)
+    setLoadingState('loaded') 
+  }
+
+  async function buyNft(nft) {
+    //const web3Modal = new Web3Modal()
+    const provider = await web3Modal.connect()
+    const web3Provider = new providers.Web3Provider(provider)
+    const signer = web3Provider.getSigner()
+    const contract = new ethers.Contract(nftmarketaddress, Market.abi, signer)
+
+    const price = ethers.utils.parseUnits(nft.price.toString(), 'ether')
+    const transaction = await contract.createMarketSale(nftaddress, nft.itemId, {
+      value: price
+    })
+    await transaction.wait()
+    loadNFTs()
+  }
+
   return (
       <div className="container mx-auto max-w-6xl p-8 2xl:px-0">
         <div className="">
@@ -244,7 +300,7 @@ export const Home = (): JSX.Element => {
             </div>
           </div>
   
-          <div className="text-center pt-2">
+          {/* <div className="text-center pt-2">
             <div className="hero min-h-16 p-0 pt-10">
               <div className="text-center hero-content w-full">
                 <div className="w-full">
@@ -254,11 +310,11 @@ export const Home = (): JSX.Element => {
                 </div>
               </div>
             </div>
-          </div>
+          </div> */}
         </div>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 items-start">
-        {data?.map((nft) => (
-          <NftCard details={nft} onSelect={() => {}} />
+        {nfts?.map((nft, i) => (
+          <NftCard key={i} details={nft} onSelect={() => {}} onClickBuy={() => buyNft(nft)}  />
         ))}
         </div>
         
